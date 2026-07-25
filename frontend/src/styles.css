@@ -800,6 +800,27 @@ a.card:hover,
   animation: fade-up var(--dur-fast) var(--ease) both;
 }
 
+.unit-toggle {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 11px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+.unit-toggle:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.unit-toggle:disabled {
+  opacity: 0.5;
+}
+
 /* ---------- Motion primitives ---------- */
 @keyframes fade-in {
   from {

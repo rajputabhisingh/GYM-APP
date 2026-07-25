@@ -3,13 +3,7 @@ import client from '../api/client'
 import VoiceRecorderButton from './VoiceRecorderButton'
 import ExercisePickerModal from './ExercisePickerModal'
 import { parseVoiceTranscript, findClosestExercise, suggestExercises } from '../utils/parseVoiceTranscript'
-
-const DIFFICULTIES = [
-  { value: 'easy', label: 'easy' },
-  { value: 'moderate', label: 'ok' },
-  { value: 'hard', label: 'heavy' },
-  { value: 'failure', label: 'very heavy' },
-]
+import { DIFFICULTIES, kgToLbs, lbsToKg } from '../utils/difficulty'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -18,7 +12,15 @@ function emptySet(n) {
 }
 
 function emptyCard(id) {
-  return { cardId: id, exercise: null, sets: [emptySet(1)], lastTime: null, lastHeard: null, suggestions: [] }
+  return {
+    cardId: id,
+    exercise: null,
+    sets: [emptySet(1)],
+    lastTime: null,
+    lastHeard: null,
+    suggestions: [],
+    unit: 'kg',
+  }
 }
 
 export default function NewSessionForm({ allExercises, recentExerciseIds, onFinished, onCancel }) {
@@ -47,6 +49,20 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
     setCards((prev) => prev.map((c) => (c.cardId === cardId ? updater(c) : c)))
   }
 
+  function toggleUnit(cardId) {
+    updateCard(cardId, (c) => {
+      const nextUnit = c.unit === 'kg' ? 'lbs' : 'kg'
+      // Convert already-entered numbers so they still represent the same real weight.
+      const sets = c.sets.map((s) => {
+        if (s.weight_kg === '' || s.weight_kg == null) return s
+        const num = Number(s.weight_kg)
+        const converted = nextUnit === 'lbs' ? kgToLbs(num) : lbsToKg(num)
+        return { ...s, weight_kg: converted }
+      })
+      return { ...c, unit: nextUnit, sets }
+    })
+  }
+
   async function applyExerciseToCard(cardId, exercise) {
     updateCard(cardId, (c) => ({ ...c, exercise, suggestions: [] }))
 
@@ -61,7 +77,7 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
         if (hasRealData) return { ...c, lastTime: lastSets }
         const prefilled = lastSets.map((s, i) => ({
           set_number: i + 1,
-          weight_kg: s.weight_kg ?? '',
+          weight_kg: s.weight_kg == null ? '' : c.unit === 'lbs' ? kgToLbs(s.weight_kg) : s.weight_kg,
           reps: s.reps ?? '',
           difficulty: 'easy',
           notes: '',
@@ -123,16 +139,15 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
       if (parsedSets.length > 0) {
         const hasRealData = next.sets.some((s) => s.weight_kg !== '' || s.reps !== '')
         const baseCount = hasRealData ? next.sets.length : 0
+        // Voice always reports kg/lbs as spoken; convert into whatever unit this card is set to.
         const newSets = parsedSets.map((s, i) => ({
           set_number: baseCount + i + 1,
-          weight_kg: s.weight_kg ?? '',
+          weight_kg: s.weight_kg == null ? '' : next.unit === 'lbs' ? kgToLbs(s.weight_kg) : s.weight_kg,
           reps: s.reps ?? '',
           difficulty: s.difficulty || 'easy',
           notes: s.notes || '',
           done: false,
         }))
-        // First real chunk replaces the single empty placeholder row;
-        // every chunk after that appends new sets instead of overwriting.
         next = { ...next, sets: hasRealData ? [...next.sets, ...newSets] : newSets }
       }
 
@@ -169,13 +184,18 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
           exercise_order: i + 1,
           sets: c.sets
             .filter((s) => s.weight_kg !== '' || s.reps !== '')
-            .map((s) => ({
-              set_number: s.set_number,
-              weight_kg: s.weight_kg === '' ? null : Number(s.weight_kg),
-              reps: s.reps === '' ? null : Number(s.reps),
-              difficulty: s.difficulty,
-              notes: s.notes || null,
-            })),
+            .map((s) => {
+              // Backend always stores kg — convert lbs entries back before sending.
+              const rawWeight = s.weight_kg === '' ? null : Number(s.weight_kg)
+              const weightKg = rawWeight == null ? null : c.unit === 'lbs' ? lbsToKg(rawWeight) : rawWeight
+              return {
+                set_number: s.set_number,
+                weight_kg: weightKg,
+                reps: s.reps === '' ? null : Number(s.reps),
+                difficulty: s.difficulty,
+                notes: s.notes || null,
+              }
+            }),
         })
       }
 
@@ -294,7 +314,15 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
                     disabled={s.done}
                     onChange={(e) => updateSet(card.cardId, i, 'weight_kg', e.target.value)}
                   />
-                  <span className="meta">kg ×</span>
+                  <button
+                    type="button"
+                    className="unit-toggle"
+                    onClick={() => toggleUnit(card.cardId)}
+                    disabled={s.done}
+                    title="Tap to switch kg / lbs"
+                  >
+                    {card.unit} ×
+                  </button>
                   <input
                     className="input"
                     type="number"
@@ -314,17 +342,21 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
                   </button>
                 </div>
                 <div className="difficulty-chips">
-                  {DIFFICULTIES.map((d) => (
-                    <button
-                      key={d.value}
-                      type="button"
-                      disabled={s.done}
-                      className={`chip${s.difficulty === d.value ? ' active' : ''}`}
-                      onClick={() => updateSet(card.cardId, i, 'difficulty', d.value)}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
+                  {DIFFICULTIES.map((d) => {
+                    const isActive = s.difficulty === d.value
+                    return (
+                      <button
+                        key={d.value}
+                        type="button"
+                        disabled={s.done}
+                        className={`chip${isActive ? ' active' : ''}`}
+                        style={isActive ? { background: d.color, borderColor: d.color, color: '#0e1410' } : undefined}
+                        onClick={() => updateSet(card.cardId, i, 'difficulty', d.value)}
+                      >
+                        {d.label}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             ))}
