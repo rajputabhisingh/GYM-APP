@@ -13,6 +13,18 @@
   --radius: 10px;
   --font-display: "Oswald", "Arial Narrow", sans-serif;
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 0.15s;
+  --dur-med: 0.35s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 * {
@@ -65,16 +77,26 @@ button {
   font-size: 14px;
   background: var(--accent);
   color: var(--accent-text);
-  transition: background 0.15s ease;
+  transition: background var(--dur-fast) ease, transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) ease;
 }
 
 .btn:hover {
   background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 90, 54, 0.28);
+}
+
+.btn:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn-ghost {
@@ -85,6 +107,7 @@ button {
 
 .btn-ghost:hover {
   background: var(--surface-2);
+  box-shadow: none;
 }
 
 .btn-danger {
@@ -103,13 +126,20 @@ textarea {
   padding: 11px 14px;
   font-size: 14px;
   font-family: var(--font-body);
+  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
 }
 
 .input:focus,
 select:focus,
 textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 90, 54, 0.18);
+}
+
+:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
 label {
@@ -129,6 +159,15 @@ label {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 24px;
+  transition: transform var(--dur-med) var(--ease), border-color var(--dur-fast) ease,
+    box-shadow var(--dur-med) var(--ease);
+}
+
+a.card:hover,
+.card.clickable:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 90, 54, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .error-text {
@@ -252,6 +291,8 @@ label {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
   padding: 16px 28px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -271,6 +312,7 @@ label {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex-wrap: wrap;
 }
 
 .user-chip {
@@ -291,6 +333,16 @@ label {
   max-width: 1100px;
   width: 100%;
   margin: 0 auto;
+  animation: fade-up var(--dur-med) var(--ease) both;
+}
+
+@media (max-width: 480px) {
+  .topbar {
+    padding: 14px 16px;
+  }
+  .main {
+    padding: 16px;
+  }
 }
 
 .section-title {
@@ -370,6 +422,11 @@ label {
 .workout-item {
   padding: 14px 0;
   border-bottom: 1px solid var(--border);
+  transition: padding-left var(--dur-fast) ease;
+}
+
+.workout-item:hover {
+  padding-left: 6px;
 }
 
 .workout-item:last-child {
@@ -518,6 +575,7 @@ label {
 }
 
 .tab-btn {
+  position: relative;
   text-align: left;
   padding: 10px 14px;
   border-radius: var(--radius);
@@ -526,16 +584,30 @@ label {
   color: var(--text-muted);
   font-weight: 600;
   font-size: 14px;
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
 }
 
 .tab-btn:hover {
   background: var(--surface-2);
+  color: var(--text);
 }
 
 .tab-btn.active {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
+}
+
+.tab-btn.active::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: grow-in var(--dur-med) var(--ease) both;
 }
 
 .tab-content {
@@ -551,6 +623,14 @@ label {
     flex-direction: row;
     overflow-x: auto;
   }
+  .tab-btn.active::before {
+    left: 10px;
+    right: 10px;
+    top: auto;
+    bottom: -1px;
+    width: auto;
+    height: 3px;
+  }
 }
 
 /* ---------- Category / difficulty / period chips ---------- */
@@ -563,12 +643,19 @@ label {
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease, transform var(--dur-fast) var(--ease);
+}
+
+.chip:hover {
+  border-color: var(--accent);
 }
 
 .chip.active {
   background: var(--accent);
   color: var(--accent-text);
   border-color: var(--accent);
+  transform: scale(1.04);
 }
 
 .category-chips,
@@ -590,6 +677,7 @@ label {
   justify-content: center;
   padding: 60px 20px;
   z-index: 100;
+  animation: fade-in var(--dur-fast) ease both;
 }
 
 .modal-card {
@@ -602,6 +690,7 @@ label {
   display: flex;
   flex-direction: column;
   padding: 20px;
+  animation: modal-in var(--dur-med) var(--ease) both;
 }
 
 .modal-header {
@@ -633,10 +722,12 @@ label {
   padding: 10px 8px;
   border-radius: var(--radius);
   font-size: 14px;
+  transition: background var(--dur-fast) ease, padding-left var(--dur-fast) ease;
 }
 
 .modal-list-item:hover {
   background: var(--surface-2);
+  padding-left: 12px;
 }
 
 /* ---------- New session form ---------- */
@@ -644,11 +735,25 @@ label {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-bottom: 20px;
 }
 
 .session-header h2 {
   margin: 0;
+  order: 3;
+  width: 100%;
+  text-align: left;
+}
+
+@media (min-width: 560px) {
+  .session-header h2 {
+    order: 0;
+    width: auto;
+    text-align: center;
+    flex: 1;
+  }
 }
 
 .exercise-grid {
@@ -656,6 +761,10 @@ label {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
   margin-top: 16px;
+}
+
+.exercise-card {
+  animation: fade-up var(--dur-med) var(--ease) both;
 }
 
 .exercise-card-header {
@@ -675,4 +784,89 @@ label {
   padding: 10px 12px;
   font-weight: 600;
   font-size: 14px;
+  transition: border-color var(--dur-fast) ease;
+}
+
+.exercise-name-btn:hover {
+  border-color: var(--accent);
+}
+
+/* ---------- Motion primitives ---------- */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes grow-in {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tab-fade {
+  animation: fade-up var(--dur-med) var(--ease) both;
+}
+
+/* ---------- Spinner ---------- */
+.spinner-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ---------- Stat numbers ---------- */
+.stat-number {
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1;
+  margin: 4px 0 0;
 }

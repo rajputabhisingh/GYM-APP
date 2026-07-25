@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import client from '../../api/client'
 import NewSessionForm from '../../components/NewSessionForm'
+import Spinner from '../../components/Spinner'
 
 export default function WorkoutsTab({ allExercises, recentExerciseIds, onDataChange }) {
   const [workouts, setWorkouts] = useState([])
@@ -48,7 +49,7 @@ export default function WorkoutsTab({ allExercises, recentExerciseIds, onDataCha
       </button>
 
       <div className="card">
-        {loading && <p className="empty-state">Loading…</p>}
+        {loading && <Spinner label="Loading your workouts…" />}
         {error && <div className="error-text">{error}</div>}
         {!loading && workouts.length === 0 && (
           <p className="empty-state">No sessions yet — start one above.</p>

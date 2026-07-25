@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import client from '../../api/client'
+import Spinner from '../../components/Spinner'
+import { useCountUp } from '../../hooks/useCountUp'
 
 const PERIODS = [
   { key: 'day', label: 'Day', days: 1 },
@@ -63,6 +65,9 @@ export default function ProgressTab() {
     }
   }, [workouts])
 
+  const animatedSessions = useCountUp(stats.sessions)
+  const animatedVolume = useCountUp(stats.totalVolumeKg)
+
   return (
     <div className="stack">
       <div className="period-tabs">
@@ -78,7 +83,7 @@ export default function ProgressTab() {
         ))}
       </div>
 
-      {loading && <p className="empty-state">Loading…</p>}
+      {loading && <Spinner label="Loading your progress…" />}
       {error && <div className="error-text">{error}</div>}
 
       {!loading && (
@@ -86,11 +91,11 @@ export default function ProgressTab() {
           <div className="grid-2">
             <div className="card">
               <div className="meta">Sessions</div>
-              <h2 style={{ margin: 0 }}>{stats.sessions}</h2>
+              <p className="stat-number">{Math.round(animatedSessions)}</p>
             </div>
             <div className="card">
               <div className="meta">Volume</div>
-              <h2 style={{ margin: 0 }}>{stats.totalVolumeKg} kg</h2>
+              <p className="stat-number">{Math.round(animatedVolume)} kg</p>
             </div>
           </div>
 

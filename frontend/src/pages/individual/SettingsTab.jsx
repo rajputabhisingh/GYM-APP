@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import client from '../../api/client'
+import Spinner from '../../components/Spinner'
+import { useCountUp } from '../../hooks/useCountUp'
 
 export default function SettingsTab() {
   const [me, setMe] = useState(null)
   const [sessionCount, setSessionCount] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const animatedCount = useCountUp(sessionCount || 0)
 
   useEffect(() => {
     Promise.all([client.get('/auth/me'), client.get('/workouts', { params: { limit: 200 } })])
@@ -17,7 +20,7 @@ export default function SettingsTab() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <p className="empty-state">Loading…</p>
+  if (loading) return <Spinner label="Loading account…" />
   if (error) return <div className="error-text">{error}</div>
   if (!me) return null
 
@@ -51,7 +54,7 @@ export default function SettingsTab() {
 
       <div className="card">
         <div className="meta">Sessions logged</div>
-        <h2 style={{ margin: 0 }}>{sessionCount}</h2>
+        <p className="stat-number">{Math.round(animatedCount)}</p>
       </div>
     </div>
   )

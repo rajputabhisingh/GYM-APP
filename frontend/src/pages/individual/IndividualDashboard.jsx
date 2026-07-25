@@ -51,16 +51,18 @@ export default function IndividualDashboard() {
             ))}
           </div>
 
-          <div className="tab-content">
-            {tab === 'workouts' && (
-              <WorkoutsTab
-                allExercises={allExercises}
-                recentExerciseIds={recentExerciseIds}
-                onDataChange={loadRecents}
-              />
-            )}
-            {tab === 'progress' && <ProgressTab />}
-            {tab === 'settings' && <SettingsTab />}
+          <div className="tab-content" key={tab}>
+            <div className="tab-fade">
+              {tab === 'workouts' && (
+                <WorkoutsTab
+                  allExercises={allExercises}
+                  recentExerciseIds={recentExerciseIds}
+                  onDataChange={loadRecents}
+                />
+              )}
+              {tab === 'progress' && <ProgressTab />}
+              {tab === 'settings' && <SettingsTab />}
+            </div>
           </div>
         </div>
       </div>

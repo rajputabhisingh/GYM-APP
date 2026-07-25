@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Navbar from '../../components/Navbar'
 import client from '../../api/client'
+import Spinner from '../../components/Spinner'
 import { useAuth } from '../../context/AuthContext'
 
 export default function OwnerDashboard() {
@@ -32,7 +33,7 @@ export default function OwnerDashboard() {
         <div className="stack">
           <div className="card">
             <h3>Welcome, {profile?.full_name}</h3>
-            {loading && <p className="empty-state">Loading gym details…</p>}
+            {loading && <Spinner label="Loading gym details…" />}
             {error && <div className="error-text">{error}</div>}
 
             {gym && (
