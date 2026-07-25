@@ -66,7 +66,39 @@ export function parseVoiceTranscript(transcript) {
   return { exerciseGuess, sets }
 }
 
-/** Fuzzy-matches a spoken exercise name guess against the known catalog. */
+function bigrams(str) {
+  const s = str.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const grams = []
+  for (let i = 0; i < s.length - 1; i++) grams.push(s.slice(i, i + 2))
+  return grams
+}
+
+function diceSimilarity(a, b) {
+  const bigramsA = bigrams(a)
+  const bigramsB = [...bigrams(b)]
+  if (bigramsA.length === 0 || bigramsB.length === 0) return 0
+  let matches = 0
+  for (const bg of bigramsA) {
+    const idx = bigramsB.indexOf(bg)
+    if (idx !== -1) {
+      matches++
+      bigramsB.splice(idx, 1)
+    }
+  }
+  return (2 * matches) / (bigramsA.length + bigramsB.length)
+}
+
+/** "Did you mean…" — ranks every exercise by spelling closeness to the guess,
+ * so there's always something sensible to suggest even with no real match. */
+export function suggestExercises(guess, exercises, limit = 4) {
+  if (!guess || !exercises?.length) return []
+  return exercises
+    .map((e) => ({ exercise: e, score: diceSimilarity(guess, e.name) }))
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((s) => s.exercise)
+}
 export function findClosestExercise(guess, exercises) {
   if (!guess || !exercises?.length) return null
   const g = guess.toLowerCase().trim()

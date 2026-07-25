@@ -791,6 +791,15 @@ a.card:hover,
   border-color: var(--accent);
 }
 
+.voice-hint {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  animation: fade-up var(--dur-fast) var(--ease) both;
+}
+
 /* ---------- Motion primitives ---------- */
 @keyframes fade-in {
   from {

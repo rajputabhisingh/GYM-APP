@@ -2,7 +2,7 @@ import { useState } from 'react'
 import client from '../api/client'
 import VoiceRecorderButton from './VoiceRecorderButton'
 import ExercisePickerModal from './ExercisePickerModal'
-import { parseVoiceTranscript, findClosestExercise } from '../utils/parseVoiceTranscript'
+import { parseVoiceTranscript, findClosestExercise, suggestExercises } from '../utils/parseVoiceTranscript'
 
 const DIFFICULTIES = [
   { value: 'easy', label: 'easy' },
@@ -18,7 +18,7 @@ function emptySet(n) {
 }
 
 function emptyCard(id) {
-  return { cardId: id, exercise: null, sets: [emptySet(1)], lastTime: null, lastHeard: null }
+  return { cardId: id, exercise: null, sets: [emptySet(1)], lastTime: null, lastHeard: null, suggestions: [] }
 }
 
 export default function NewSessionForm({ allExercises, recentExerciseIds, onFinished, onCancel }) {
@@ -47,10 +47,8 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
     setCards((prev) => prev.map((c) => (c.cardId === cardId ? updater(c) : c)))
   }
 
-  async function handlePickExercise(exercise) {
-    const cardId = pickerForCard
-    updateCard(cardId, (c) => ({ ...c, exercise }))
-    setPickerForCard(null)
+  async function applyExerciseToCard(cardId, exercise) {
+    updateCard(cardId, (c) => ({ ...c, exercise, suggestions: [] }))
 
     // Suggest starting weight/reps from the last time this exercise was logged.
     try {
@@ -74,6 +72,12 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
     } catch {
       // suggestion is a nice-to-have — ignore failures silently
     }
+  }
+
+  async function handlePickExercise(exercise) {
+    const cardId = pickerForCard
+    setPickerForCard(null)
+    await applyExerciseToCard(cardId, exercise)
   }
 
   function addSetRow(cardId) {
@@ -105,11 +109,15 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
     const { exerciseGuess, sets: parsedSets } = parseVoiceTranscript(chunkText)
 
     updateCard(cardId, (c) => {
-      let next = { ...c, lastHeard: chunkText }
+      let next = { ...c, lastHeard: chunkText, suggestions: [] }
 
       if (!next.exercise && exerciseGuess) {
         const match = findClosestExercise(exerciseGuess, allExercises)
-        if (match) next = { ...next, exercise: match }
+        if (match) {
+          next = { ...next, exercise: match }
+        } else {
+          next = { ...next, suggestions: suggestExercises(exerciseGuess, allExercises, 4) }
+        }
       }
 
       if (parsedSets.length > 0) {
@@ -246,11 +254,31 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
               </p>
             )}
 
-            {card.lastHeard && (
-              <p className="meta" style={{ marginBottom: 10 }}>
-                Heard: "{card.lastHeard}"
-                {!card.exercise && ' — no matching exercise, tap 🔍 to pick one'}
-              </p>
+            {card.lastHeard && !card.exercise && (
+              <div className="voice-hint">
+                <p className="meta">Heard: "{card.lastHeard}"</p>
+                {card.suggestions?.length > 0 ? (
+                  <>
+                    <p className="meta" style={{ marginTop: 6 }}>Did you mean:</p>
+                    <div className="category-chips" style={{ marginTop: 6 }}>
+                      {card.suggestions.map((ex) => (
+                        <button
+                          key={ex.id}
+                          type="button"
+                          className="chip"
+                          onClick={() => applyExerciseToCard(card.cardId, ex)}
+                        >
+                          {ex.name}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="meta" style={{ marginTop: 6 }}>
+                    No close match — tap 🔍 to search manually.
+                  </p>
+                )}
+              </div>
             )}
 
             {card.sets.map((s, i) => (
