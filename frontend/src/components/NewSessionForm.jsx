@@ -18,7 +18,7 @@ function emptySet(n) {
 }
 
 function emptyCard(id) {
-  return { cardId: id, exercise: null, sets: [emptySet(1)], lastTime: null }
+  return { cardId: id, exercise: null, sets: [emptySet(1)], lastTime: null, lastHeard: null }
 }
 
 export default function NewSessionForm({ allExercises, recentExerciseIds, onFinished, onCancel }) {
@@ -105,7 +105,7 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
     const { exerciseGuess, sets: parsedSets } = parseVoiceTranscript(chunkText)
 
     updateCard(cardId, (c) => {
-      let next = c
+      let next = { ...c, lastHeard: chunkText }
 
       if (!next.exercise && exerciseGuess) {
         const match = findClosestExercise(exerciseGuess, allExercises)
@@ -243,6 +243,13 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
               <p className="meta" style={{ marginBottom: 10 }}>
                 Last time: {card.lastTime.map((s) => `${s.weight_kg ?? '—'}kg×${s.reps ?? '—'}`).join(', ')}
                 {' — pre-filled below, adjust as needed'}
+              </p>
+            )}
+
+            {card.lastHeard && (
+              <p className="meta" style={{ marginBottom: 10 }}>
+                Heard: "{card.lastHeard}"
+                {!card.exercise && ' — no matching exercise, tap 🔍 to pick one'}
               </p>
             )}
 

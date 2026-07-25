@@ -69,18 +69,24 @@ export function parseVoiceTranscript(transcript) {
 /** Fuzzy-matches a spoken exercise name guess against the known catalog. */
 export function findClosestExercise(guess, exercises) {
   if (!guess || !exercises?.length) return null
-  const g = guess.toLowerCase()
+  const g = guess.toLowerCase().trim()
 
-  const substringMatch = exercises.find(
+  // Substring shortcut — only trust it when EXACTLY one exercise matches.
+  // A generic word like "curl" matches Biceps Curl, Hammer Curl, Leg Curl, etc.
+  // all at once — in that case fall through to token scoring below instead
+  // of blindly picking whichever one happens to come first.
+  const substringMatches = exercises.filter(
     (e) => g.includes(e.name.toLowerCase()) || e.name.toLowerCase().includes(g)
   )
-  if (substringMatch) return substringMatch
+  if (substringMatches.length === 1) return substringMatches[0]
 
   const gTokens = g.split(/\s+/).filter(Boolean)
+  const pool = substringMatches.length > 1 ? substringMatches : exercises
+
   let best = null
   let bestScore = 0
-  for (const e of exercises) {
-    const eTokens = e.name.toLowerCase().split(/\s+/)
+  for (const e of pool) {
+    const eTokens = e.name.toLowerCase().replace(/[()]/g, '').split(/\s+/).filter(Boolean)
     const score = eTokens.filter((t) => gTokens.includes(t)).length
     if (score > bestScore) {
       bestScore = score
