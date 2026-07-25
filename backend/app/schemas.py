@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -33,6 +33,11 @@ class ProfileOut(BaseModel):
     phone: Optional[str] = None
     username: Optional[str] = None
     role: UserRole
+    goals: List[str] = []
+
+
+class GoalsUpdateRequest(BaseModel):
+    goals: List[str]
 
 
 class TokenResponse(BaseModel):

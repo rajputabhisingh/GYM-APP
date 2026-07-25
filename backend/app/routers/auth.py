@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 
 from ..config import get_supabase_client, get_supabase_admin
-from ..schemas import SignupRequest, LoginRequest, RefreshRequest, TokenResponse, ProfileOut
+from ..schemas import SignupRequest, LoginRequest, RefreshRequest, TokenResponse, ProfileOut, GoalsUpdateRequest
 from ..schemas_owner import OwnerSignupRequest, OwnerSignupResponse, GymOut
 from ..schemas_registration import (
     IndividualSignupRequest,
@@ -10,7 +10,7 @@ from ..schemas_registration import (
     ResendVerificationRequest,
     AvailabilityResponse,
 )
-from ..auth import get_current_user
+from ..auth import get_current_user, get_user_client
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -405,3 +405,15 @@ def refresh(payload: RefreshRequest):
 @router.get("/me", response_model=ProfileOut)
 def me(current_user: ProfileOut = Depends(get_current_user)):
     return current_user
+
+
+@router.patch("/goals", response_model=ProfileOut)
+def update_goals(
+    payload: GoalsUpdateRequest,
+    user: ProfileOut = Depends(get_current_user),
+    client=Depends(get_user_client),
+):
+    res = client.table("profiles").update({"goals": payload.goals}).eq("id", user.id).execute()
+    if not res.data:
+        raise HTTPException(status_code=400, detail="Could not update goals")
+    return ProfileOut(**res.data[0])
