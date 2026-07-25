@@ -22,12 +22,17 @@ export default function VoiceRecorderButton({ onChunk }) {
     recognition.continuous = true
     recognition.interimResults = true
     recognition.lang = 'en-IN'
+    recognition.maxAlternatives = 5
 
     recognition.onresult = (event) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
-          const chunk = event.results[i][0].transcript.trim()
-          if (chunk) onChunk(chunk)
+          const alternatives = []
+          for (let j = 0; j < event.results[i].length; j++) {
+            const t = event.results[i][j].transcript.trim()
+            if (t) alternatives.push(t)
+          }
+          if (alternatives.length) onChunk(alternatives)
         }
       }
     }

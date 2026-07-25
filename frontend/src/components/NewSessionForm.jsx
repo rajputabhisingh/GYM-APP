@@ -122,14 +122,22 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
     })
   }
 
-  function handleVoiceChunk(cardId, chunkText) {
-    const { exerciseGuess, sets: parsedSets } = parseVoiceTranscript(chunkText)
+  function handleVoiceChunk(cardId, transcripts) {
+    const primary = transcripts[0]
+    const { exerciseGuess, sets: parsedSets } = parseVoiceTranscript(primary)
 
     updateCard(cardId, (c) => {
-      let next = { ...c, lastHeard: chunkText, suggestions: [] }
+      let next = { ...c, lastHeard: primary, suggestions: [] }
 
       if (!next.exercise && exerciseGuess) {
-        const match = findClosestExercise(exerciseGuess, allExercises)
+        // Background noise can garble the #1 guess — try every alternative
+        // Chrome offered until one of them confidently matches a real exercise.
+        let match = null
+        for (const alt of transcripts) {
+          const altGuess = parseVoiceTranscript(alt).exerciseGuess
+          match = findClosestExercise(altGuess, allExercises)
+          if (match) break
+        }
         if (match) {
           next = { ...next, exercise: match }
         } else {
@@ -381,7 +389,7 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
       <div className="field" style={{ marginTop: 18 }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           Session notes
-          <VoiceRecorderButton onChunk={(t) => setNotes((prev) => (prev ? prev + ' ' + t : t))} />
+          <VoiceRecorderButton onChunk={(alts) => setNotes((prev) => (prev ? prev + ' ' + alts[0] : alts[0]))} />
         </label>
         <textarea
           rows={3}
