@@ -1,13 +1,14 @@
 // Extracts sets from a spoken/typed workout description.
 // Example input:
-// "Flat bench press. 17.5 kilos for 15 reps easy. 20 kilos for 12 reps,
-//  last two reps felt heavy. 22.5 kilos for 10 reps, needed support at the end."
+// "Flat bench press. 17.5 kilos for 15 reps easy. 20 kilos 12 reps,
+//  last two reps felt heavy. 22.5 kilos x 10 reps, needed support at the end."
 //
 // Works for both kg and lbs ("kg", "kgs", "kilo(s)", "lb", "lbs", "pound(s)"),
-// and both "x" and "for" as the weight-reps connector.
+// and the weight-reps connector ("x", "for") is optional — "15 kg 14 reps"
+// works the same as "15 kg for 14 reps" or "15 kg x 14 reps".
 
 const WEIGHT_REP_RE =
-  /(\d+(?:\.\d+)?)\s*(kgs?|kilos?|kilograms?|lbs?|pounds?)\s*(?:x|×|for)\s*(\d+)\s*(?:reps?)?/gi
+  /(\d+(?:\.\d+)?)\s*(kgs?|kilos?|kilograms?|lbs?|pounds?)\s*(?:x|×|for)?\s*(\d+)\s*(?:reps?)?/gi
 
 const LBS_TO_KG = 0.453592
 
