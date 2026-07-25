@@ -5,8 +5,8 @@
   --border: #2c313a;
   --text: #f2f3f5;
   --text-muted: #9aa1ac;
-  --accent: #ff5a36;
-  --accent-hover: #ff7355;
+  --accent: #f0b93e;
+  --accent-hover: #f5c968;
   --accent-text: #14161a;
   --success: #3ddc84;
   --danger: #ff5a5a;
@@ -84,7 +84,7 @@ button {
 .btn:hover {
   background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(255, 90, 54, 0.28);
+  box-shadow: 0 4px 14px rgba(240, 185, 62, 0.28);
 }
 
 .btn:active {
@@ -134,7 +134,7 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(255, 90, 54, 0.18);
+  box-shadow: 0 0 0 3px rgba(240, 185, 62, 0.18);
 }
 
 :focus-visible {
@@ -166,7 +166,7 @@ label {
 a.card:hover,
 .card.clickable:hover {
   transform: translateY(-3px);
-  border-color: rgba(255, 90, 54, 0.35);
+  border-color: rgba(240, 185, 62, 0.35);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
@@ -196,9 +196,9 @@ a.card:hover,
 }
 
 .badge-accent {
-  background: rgba(255, 90, 54, 0.15);
+  background: rgba(240, 185, 62, 0.15);
   color: var(--accent);
-  border-color: rgba(255, 90, 54, 0.3);
+  border-color: rgba(240, 185, 62, 0.3);
 }
 
 /* ---------- Auth screens ---------- */
