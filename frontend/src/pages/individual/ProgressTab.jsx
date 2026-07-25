@@ -3,6 +3,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContai
 import client from '../../api/client'
 import Spinner from '../../components/Spinner'
 import { useCountUp } from '../../hooks/useCountUp'
+import { getErrorMessage } from '../../utils/errorMessage'
 
 const SUB_TABS = [
   { key: 'goals', label: 'Goals' },
@@ -100,14 +101,14 @@ export default function ProgressTab() {
 
   useEffect(() => {
     Promise.all([
-      client.get('/workouts', { params: { limit: 500 } }),
+      client.get('/workouts', { params: { limit: 200 } }),
       client.get('/auth/me'),
     ])
       .then(([wRes, meRes]) => {
         setWorkouts(wRes.data)
         setProfile(meRes.data)
       })
-      .catch((err) => setError(err?.response?.data?.detail || 'Could not load progress.'))
+      .catch((err) => setError(getErrorMessage(err, 'Could not load progress.')))
       .finally(() => setLoading(false))
   }, [])
 

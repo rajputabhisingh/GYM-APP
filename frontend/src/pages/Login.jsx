@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth, dashboardPathForRole } from '../context/AuthContext'
+import { getErrorMessage } from '../utils/errorMessage'
 
 export default function Login() {
   const { login } = useAuth()
@@ -19,7 +20,7 @@ export default function Login() {
       const profile = await login(email, password)
       navigate(dashboardPathForRole(profile.role), { replace: true })
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Invalid email or password.')
+      setError(getErrorMessage(err, 'Invalid email or password.'))
     } finally {
       setSubmitting(false)
     }

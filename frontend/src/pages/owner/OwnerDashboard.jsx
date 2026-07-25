@@ -3,6 +3,7 @@ import Navbar from '../../components/Navbar'
 import client from '../../api/client'
 import Spinner from '../../components/Spinner'
 import { useAuth } from '../../context/AuthContext'
+import { getErrorMessage } from '../../utils/errorMessage'
 
 export default function OwnerDashboard() {
   const { profile } = useAuth()
@@ -15,7 +16,7 @@ export default function OwnerDashboard() {
     client
       .get('/gyms/me')
       .then((res) => setGym(res.data))
-      .catch((err) => setError(err?.response?.data?.detail || 'Could not load gym details.'))
+      .catch((err) => setError(getErrorMessage(err, 'Could not load gym details.')))
       .finally(() => setLoading(false))
   }, [])
 

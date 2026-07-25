@@ -4,6 +4,7 @@ import VoiceRecorderButton from './VoiceRecorderButton'
 import ExercisePickerModal from './ExercisePickerModal'
 import { parseVoiceTranscript, findClosestExercise, suggestExercises } from '../utils/parseVoiceTranscript'
 import { DIFFICULTIES, kgToLbs, lbsToKg } from '../utils/difficulty'
+import { getErrorMessage } from '../utils/errorMessage'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -201,7 +202,7 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
 
       onFinished()
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Could not save session.')
+      setError(getErrorMessage(err, 'Could not save session.'))
     } finally {
       setSubmitting(false)
     }

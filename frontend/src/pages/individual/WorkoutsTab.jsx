@@ -3,6 +3,7 @@ import client from '../../api/client'
 import NewSessionForm from '../../components/NewSessionForm'
 import Spinner from '../../components/Spinner'
 import { DIFFICULTY_COLOR, DIFFICULTY_LABEL } from '../../utils/difficulty'
+import { getErrorMessage } from '../../utils/errorMessage'
 
 export default function WorkoutsTab({ allExercises, recentExerciseIds, onDataChange }) {
   const [workouts, setWorkouts] = useState([])
@@ -16,7 +17,7 @@ export default function WorkoutsTab({ allExercises, recentExerciseIds, onDataCha
       const res = await client.get('/workouts', { params: { limit: 100 } })
       setWorkouts(res.data)
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Could not load workouts.')
+      setError(getErrorMessage(err, 'Could not load workouts.'))
     } finally {
       setLoading(false)
     }

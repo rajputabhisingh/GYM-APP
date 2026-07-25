@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { getErrorMessage } from '../utils/errorMessage'
 
 const initialForm = {
   gym_name: '',
@@ -38,7 +39,7 @@ export default function OwnerSignup() {
       setSuccess(res.message || 'Registration successful. Check your email to verify your account.')
       setTimeout(() => navigate('/login'), 2200)
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Registration failed. Please check your details.')
+      setError(getErrorMessage(err, 'Registration failed. Please check your details.'))
     } finally {
       setSubmitting(false)
     }

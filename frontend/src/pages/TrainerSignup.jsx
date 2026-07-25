@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import GymPicker from '../components/GymPicker'
 import PasswordStrength from '../components/PasswordStrength'
 import { useAvailability } from '../hooks/useAvailability'
+import { getErrorMessage } from '../utils/errorMessage'
 
 const initialForm = {
   full_name: '',
@@ -60,7 +61,7 @@ export default function TrainerSignup() {
       setNeedsVerification(!res.verified)
       if (res.verified) setTimeout(() => navigate('/login'), 1800)
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Registration failed. Please check your details.')
+      setError(getErrorMessage(err, 'Registration failed. Please check your details.'))
     } finally {
       setSubmitting(false)
     }
@@ -73,7 +74,7 @@ export default function TrainerSignup() {
       await resendVerification(form.email)
       setResendMsg('Verification email resent — check your inbox.')
     } catch (err) {
-      setResendMsg(err?.response?.data?.detail || 'Could not resend email.')
+      setResendMsg(getErrorMessage(err, 'Could not resend email.'))
     } finally {
       setResending(false)
     }

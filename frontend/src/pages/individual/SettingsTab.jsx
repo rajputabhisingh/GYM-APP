@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import client from '../../api/client'
 import Spinner from '../../components/Spinner'
 import { useCountUp } from '../../hooks/useCountUp'
+import { getErrorMessage } from '../../utils/errorMessage'
 
 const GOAL_OPTIONS = [
   'Build strength',
@@ -31,7 +32,7 @@ export default function SettingsTab() {
         setSessionCount(workoutsRes.data.length)
         setSelectedGoals(meRes.data.goals || [])
       })
-      .catch((err) => setError(err?.response?.data?.detail || 'Could not load account details.'))
+      .catch((err) => setError(getErrorMessage(err, 'Could not load account details.')))
       .finally(() => setLoading(false))
   }, [])
 
@@ -55,7 +56,7 @@ export default function SettingsTab() {
       setCustomGoal('')
       setGoalsSaved(true)
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Could not save goals.')
+      setError(getErrorMessage(err, 'Could not save goals.'))
     } finally {
       setSavingGoals(false)
     }
