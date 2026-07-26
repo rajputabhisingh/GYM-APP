@@ -27,7 +27,7 @@ WORKOUT_DETAIL_SELECT = (
 
 @router.get("/exercise-history/{exercise_id}")
 def get_exercise_history(exercise_id: str, client=Depends(get_user_client)):
-    """Last session's sets (for pre-fill) + all-time best (target to beat)."""
+    """Last session's sets (for pre-fill) + all-time best and average (target to beat)."""
     res = (
         client.table("workout_exercises")
         .select("id, created_at, sets:exercise_sets(*)")
@@ -36,21 +36,35 @@ def get_exercise_history(exercise_id: str, client=Depends(get_user_client)):
         .execute()
     )
     if not res.data:
-        return {"sets": [], "best": None}
+        return {"sets": [], "best": None, "average": None}
 
     last_sets = sorted(res.data[0].get("sets") or [], key=lambda s: s.get("set_number", 0))
 
     best_weight = 0
     best_reps = 0
+    weight_sum = 0.0
+    reps_sum = 0
+    count = 0
     for we in res.data:
         for s in we.get("sets") or []:
             w = s.get("weight_kg") or 0
+            r = s.get("reps") or 0
+            if w <= 0:
+                continue
+            count += 1
+            weight_sum += w
+            reps_sum += r
             if w > best_weight:
                 best_weight = w
-                best_reps = s.get("reps") or 0
+                best_reps = r
 
     best = {"weight_kg": best_weight, "reps": best_reps} if best_weight > 0 else None
-    return {"sets": last_sets, "best": best}
+    average = (
+        {"weight_kg": round(weight_sum / count, 1), "reps": round(reps_sum / count, 1)}
+        if count > 0
+        else None
+    )
+    return {"sets": last_sets, "best": best, "average": average}
 
 
 @router.post("", response_model=WorkoutOut, status_code=201)

@@ -73,6 +73,7 @@ class ExerciseSetIn(BaseModel):
     reps: Optional[int] = None
     difficulty: Optional[DifficultyLevel] = None
     notes: Optional[str] = None
+    per_side: bool = False
 
 
 class ExerciseSetOut(ExerciseSetIn):
