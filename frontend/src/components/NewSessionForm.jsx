@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import client from '../api/client'
 import VoiceRecorderButton from './VoiceRecorderButton'
 import ExercisePickerModal from './ExercisePickerModal'
@@ -13,38 +13,71 @@ function emptySet(n) {
   return { set_number: n, weight_kg: '', reps: '', difficulty: 'easy', notes: '', done: false, per_side: false }
 }
 
-function emptyCard(id) {
-  return {
-    cardId: id,
-    exercise: null,
-    sets: [emptySet(1)],
-    lastTime: null,
-    best: null,
-    average: null,
-    target: null,
-    showTargetForm: false,
-    lastHeard: null,
-    suggestions: [],
-    unit: 'kg',
+export default function NewSessionForm({ allExercises, recentExerciseIds, existingWorkout, onFinished, onCancel }) {
+  const nextIdRef = useRef(1)
+  function nextCardId() {
+    return `new-${nextIdRef.current++}`
   }
-}
 
-export default function NewSessionForm({ allExercises, recentExerciseIds, onFinished, onCancel }) {
-  const [date, setDate] = useState(todayISO())
-  const [cards, setCards] = useState([emptyCard(1)])
-  const [notes, setNotes] = useState('')
+  function makeEmptyCard() {
+    return {
+      cardId: nextCardId(),
+      exercise: null,
+      sets: [emptySet(1)],
+      lastTime: null,
+      best: null,
+      average: null,
+      target: null,
+      showTargetForm: false,
+      lastHeard: null,
+      suggestions: [],
+      unit: 'kg',
+    }
+  }
+
+  function cardFromExisting(we) {
+    return {
+      cardId: we.id,
+      exercise: we.exercise,
+      sets:
+        we.sets && we.sets.length > 0
+          ? we.sets.map((s) => ({
+              set_number: s.set_number,
+              weight_kg: s.weight_kg ?? '',
+              reps: s.reps ?? '',
+              difficulty: s.difficulty || 'easy',
+              notes: s.notes || '',
+              done: false,
+              per_side: s.per_side || false,
+            }))
+          : [emptySet(1)],
+      lastTime: null,
+      best: null,
+      average: null,
+      target: null,
+      showTargetForm: false,
+      lastHeard: null,
+      suggestions: [],
+      unit: 'kg',
+    }
+  }
+
+  const [date, setDate] = useState(existingWorkout?.workout_date || todayISO())
+  const [cards, setCards] = useState(() =>
+    existingWorkout?.workout_exercises?.length
+      ? existingWorkout.workout_exercises.map(cardFromExisting)
+      : [makeEmptyCard()]
+  )
+  const [notes, setNotes] = useState(existingWorkout?.notes || '')
   const [pickerForCard, setPickerForCard] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
 
-  function nextCardId() {
-    return cards.length ? Math.max(...cards.map((c) => c.cardId)) + 1 : 1
-  }
-
   function addCard() {
-    const id = nextCardId()
-    setCards((prev) => [...prev, emptyCard(id)])
-    setPickerForCard(id)
+    const card = makeEmptyCard()
+    setCards((prev) => [...prev, card])
+    setPickerForCard(card.cardId)
   }
 
   function removeCard(cardId) {
@@ -87,7 +120,6 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
     updateCard(cardId, (c) => ({ ...c, showTargetForm: false }))
   }
 
-  // Fetches last-session sets + all-time best/average for an exercise.
   async function loadExerciseHistory(cardId, exercise) {
     try {
       const res = await client.get(`/workouts/exercise-history/${exercise.id}`)
@@ -212,13 +244,20 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
       const muscleGroups = [...new Set(usable.map((c) => c.exercise.muscle_group))]
       const title = muscleGroups.map((m) => m.charAt(0).toUpperCase() + m.slice(1)).join(' + ')
 
-      const workoutRes = await client.post('/workouts', {
-        workout_date: date,
-        title,
-        notes: notes || null,
-        source: 'manual',
-      })
-      const workoutId = workoutRes.data.id
+      let workoutId
+      if (existingWorkout) {
+        workoutId = existingWorkout.id
+        await client.patch(`/workouts/${workoutId}`, { workout_date: date, title, notes: notes || null })
+        await client.delete(`/workouts/${workoutId}/exercises`)
+      } else {
+        const workoutRes = await client.post('/workouts', {
+          workout_date: date,
+          title,
+          notes: notes || null,
+          source: 'manual',
+        })
+        workoutId = workoutRes.data.id
+      }
 
       for (let i = 0; i < usable.length; i++) {
         const c = usable[i]
@@ -250,13 +289,28 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
     }
   }
 
+  async function handleDelete() {
+    if (!existingWorkout) return
+    if (!window.confirm('Delete this whole workout? This cannot be undone.')) return
+    setDeleting(true)
+    setError('')
+    try {
+      await client.delete(`/workouts/${existingWorkout.id}`)
+      onFinished()
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not delete workout.'))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <div className="session-form">
       <div className="session-header">
         <button type="button" className="btn btn-ghost" onClick={onCancel}>
           Cancel
         </button>
-        <h2>New Session</h2>
+        <h2>{existingWorkout ? 'Edit Session' : 'New Session'}</h2>
         <button type="button" className="btn" onClick={handleFinish} disabled={submitting}>
           {submitting ? 'Saving…' : 'Finish'}
         </button>
@@ -315,7 +369,9 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
               <div style={{ marginBottom: 10 }}>
                 {(card.best || card.average) && (
                   <p className="meta">
-                    {card.best && <>🏆 Best: <strong style={{ color: 'var(--text)' }}>{card.best.weight_kg}kg×{card.best.reps}</strong></>}
+                    {card.best && (
+                      <>🏆 Best: <strong style={{ color: 'var(--text)' }}>{card.best.weight_kg}kg×{card.best.reps}</strong></>
+                    )}
                     {card.average && <> · avg {card.average.weight_kg}kg×{card.average.reps} reps</>}
                   </p>
                 )}
@@ -337,7 +393,12 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
                 {!card.showTargetForm && card.target && (
                   <p className="meta">
                     🎯 Target: <strong style={{ color: 'var(--text)' }}>{card.target.weight || '—'}kg × {card.target.reps || '—'}</strong>{' '}
-                    <button type="button" className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => toggleTargetForm(card.cardId)}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ padding: '2px 8px', fontSize: 11 }}
+                      onClick={() => toggleTargetForm(card.cardId)}
+                    >
                       edit
                     </button>
                   </p>
@@ -491,6 +552,23 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Cardio, aches, anything worth remembering"
         />
+      </div>
+
+      <div className="row" style={{ marginTop: 16 }}>
+        {existingWorkout && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ color: 'var(--danger)', borderColor: 'var(--danger)', flex: 'none' }}
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting…' : 'Delete workout'}
+          </button>
+        )}
+        <button type="button" className="btn" onClick={handleFinish} disabled={submitting} style={{ flex: 1 }}>
+          {submitting ? 'Saving…' : 'Finish workout'}
+        </button>
       </div>
 
       {pickerForCard && (
