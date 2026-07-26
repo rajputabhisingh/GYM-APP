@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import client from '../api/client'
 import VoiceRecorderButton from './VoiceRecorderButton'
-import ExerciseAutocomplete from './ExerciseAutocomplete'
+import ExercisePickerModal from './ExercisePickerModal'
+import MuscleBadge from './MuscleBadge'
 import { parseVoiceTranscript, findClosestExercise, suggestExercises } from '../utils/parseVoiceTranscript'
 import { DIFFICULTIES, kgToLbs, lbsToKg } from '../utils/difficulty'
 import { getErrorMessage } from '../utils/errorMessage'
@@ -9,16 +10,19 @@ import { getErrorMessage } from '../utils/errorMessage'
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
 function emptySet(n) {
-  return { set_number: n, weight_kg: '', reps: '', difficulty: 'easy', notes: '', done: false }
+  return { set_number: n, weight_kg: '', reps: '', difficulty: 'easy', notes: '', done: false, per_side: false }
 }
 
 function emptyCard(id) {
   return {
     cardId: id,
     exercise: null,
-    sets: [emptySet(1), emptySet(2), emptySet(3)],
+    sets: [emptySet(1)],
     lastTime: null,
     best: null,
+    average: null,
+    target: null,
+    showTargetForm: false,
     lastHeard: null,
     suggestions: [],
     unit: 'kg',
@@ -29,6 +33,7 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
   const [date, setDate] = useState(todayISO())
   const [cards, setCards] = useState([emptyCard(1)])
   const [notes, setNotes] = useState('')
+  const [pickerForCard, setPickerForCard] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -37,7 +42,9 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
   }
 
   function addCard() {
-    setCards((prev) => [...prev, emptyCard(nextCardId())])
+    const id = nextCardId()
+    setCards((prev) => [...prev, emptyCard(id)])
+    setPickerForCard(id)
   }
 
   function removeCard(cardId) {
@@ -61,16 +68,35 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
     })
   }
 
-  // Fetches last-session sets + all-time best for an exercise and folds them
-  // into the card (pre-filling empty sets, padding up to 3 rows to fill in).
+  function toggleSide(cardId, index) {
+    updateCard(cardId, (c) => ({
+      ...c,
+      sets: c.sets.map((s, i) => (i === index ? { ...s, per_side: !s.per_side } : s)),
+    }))
+  }
+
+  function toggleTargetForm(cardId) {
+    updateCard(cardId, (c) => ({ ...c, showTargetForm: !c.showTargetForm }))
+  }
+
+  function setTargetField(cardId, field, value) {
+    updateCard(cardId, (c) => ({ ...c, target: { ...(c.target || {}), [field]: value } }))
+  }
+
+  function saveTarget(cardId) {
+    updateCard(cardId, (c) => ({ ...c, showTargetForm: false }))
+  }
+
+  // Fetches last-session sets + all-time best/average for an exercise.
   async function loadExerciseHistory(cardId, exercise) {
     try {
       const res = await client.get(`/workouts/exercise-history/${exercise.id}`)
       const lastSets = res.data.sets || []
       const best = res.data.best || null
+      const average = res.data.average || null
 
       updateCard(cardId, (c) => {
-        let next = { ...c, best }
+        let next = { ...c, best, average }
         if (lastSets.length === 0) return next
 
         const hasRealData = c.sets.some((s) => s.weight_kg !== '' || s.reps !== '')
@@ -83,8 +109,8 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
           difficulty: 'easy',
           notes: '',
           done: false,
+          per_side: s.per_side || false,
         }))
-        while (prefilled.length < 3) prefilled.push(emptySet(prefilled.length + 1))
         return { ...next, sets: prefilled, lastTime: lastSets }
       })
     } catch {
@@ -93,12 +119,14 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
   }
 
   async function applyExerciseToCard(cardId, exercise) {
-    if (!exercise) {
-      updateCard(cardId, (c) => ({ ...c, exercise: null }))
-      return
-    }
     updateCard(cardId, (c) => ({ ...c, exercise, suggestions: [] }))
     await loadExerciseHistory(cardId, exercise)
+  }
+
+  async function handlePickExercise(exercise) {
+    const cardId = pickerForCard
+    setPickerForCard(null)
+    await applyExerciseToCard(cardId, exercise)
   }
 
   function addSetRow(cardId) {
@@ -159,6 +187,7 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
           difficulty: s.difficulty || 'easy',
           notes: s.notes || '',
           done: false,
+          per_side: false,
         }))
         next = { ...next, sets: hasRealData ? [...next.sets, ...newSets] : newSets }
       }
@@ -207,6 +236,7 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
                 reps: s.reps === '' ? null : Number(s.reps),
                 difficulty: s.difficulty,
                 notes: s.notes || null,
+                per_side: s.per_side,
               }
             }),
         })
@@ -240,14 +270,17 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
       {error && <div className="error-text">{error}</div>}
 
       <div className="exercise-grid">
-        {cards.map((card) => (
+        {cards.map((card, idx) => (
           <div key={card.cardId} className="card exercise-card">
             <div className="exercise-card-header">
-              <ExerciseAutocomplete
-                value={card.exercise}
-                recentIds={recentExerciseIds}
-                onSelect={(ex) => applyExerciseToCard(card.cardId, ex)}
-              />
+              {card.exercise && <MuscleBadge muscleGroup={card.exercise.muscle_group} />}
+              <button
+                type="button"
+                className="exercise-name-btn"
+                onClick={() => setPickerForCard(card.cardId)}
+              >
+                {card.exercise ? card.exercise.name : `Exercise ${idx + 1}`}
+              </button>
               <VoiceRecorderButton onChunk={(t) => handleVoiceChunk(card.cardId, t)} />
               <button
                 type="button"
@@ -263,6 +296,14 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
               <button
                 type="button"
                 className="btn btn-ghost"
+                onClick={() => setPickerForCard(card.cardId)}
+                aria-label="Search exercise"
+              >
+                🔍
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
                 onClick={() => removeCard(card.cardId)}
                 aria-label="Remove exercise"
               >
@@ -270,16 +311,61 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
               </button>
             </div>
 
-            {(card.lastTime || card.best) && (
-              <p className="meta" style={{ marginBottom: 10 }}>
+            {(card.best || card.average || card.lastTime) && (
+              <div style={{ marginBottom: 10 }}>
+                {(card.best || card.average) && (
+                  <p className="meta">
+                    {card.best && <>🏆 Best: <strong style={{ color: 'var(--text)' }}>{card.best.weight_kg}kg×{card.best.reps}</strong></>}
+                    {card.average && <> · avg {card.average.weight_kg}kg×{card.average.reps} reps</>}
+                  </p>
+                )}
                 {card.lastTime && (
-                  <>Last time: {card.lastTime.map((s) => `${s.weight_kg ?? '—'}kg×${s.reps ?? '—'}`).join(', ')}</>
+                  <p className="meta">
+                    Last time: {card.lastTime.map((s) => `${s.weight_kg ?? '—'}kg×${s.reps ?? '—'}`).join(', ')}
+                  </p>
                 )}
-                {card.best && (
-                  <> · Best: {card.best.weight_kg}kg×{card.best.reps}</>
+              </div>
+            )}
+
+            {card.exercise && (
+              <div style={{ marginBottom: 10 }}>
+                {!card.showTargetForm && !card.target && (
+                  <button type="button" className="btn btn-ghost" onClick={() => toggleTargetForm(card.cardId)}>
+                    + Set target
+                  </button>
                 )}
-                {card.lastTime && ' — pre-filled below, adjust as needed'}
-              </p>
+                {!card.showTargetForm && card.target && (
+                  <p className="meta">
+                    🎯 Target: <strong style={{ color: 'var(--text)' }}>{card.target.weight || '—'}kg × {card.target.reps || '—'}</strong>{' '}
+                    <button type="button" className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => toggleTargetForm(card.cardId)}>
+                      edit
+                    </button>
+                  </p>
+                )}
+                {card.showTargetForm && (
+                  <div className="voice-hint" style={{ marginBottom: 0 }}>
+                    <div className="row">
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder="target kg"
+                        value={card.target?.weight || ''}
+                        onChange={(e) => setTargetField(card.cardId, 'weight', e.target.value)}
+                      />
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder="target reps"
+                        value={card.target?.reps || ''}
+                        onChange={(e) => setTargetField(card.cardId, 'reps', e.target.value)}
+                      />
+                      <button type="button" className="btn" onClick={() => saveTarget(card.cardId)}>
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {card.lastHeard && !card.exercise && (
@@ -303,7 +389,7 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
                   </>
                 ) : (
                   <p className="meta" style={{ marginTop: 6 }}>
-                    No close match — search for it in the box above.
+                    No close match — tap 🔍 to search manually.
                   </p>
                 )}
               </div>
@@ -339,6 +425,15 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
                     disabled={s.done}
                     onChange={(e) => updateSet(card.cardId, i, 'reps', e.target.value)}
                   />
+                  <button
+                    type="button"
+                    className={`unit-toggle${s.per_side ? ' active-side' : ''}`}
+                    onClick={() => toggleSide(card.cardId, i)}
+                    disabled={s.done}
+                    title="Reps per side (unilateral) vs total"
+                  >
+                    /side
+                  </button>
                   <button
                     type="button"
                     className="btn btn-ghost"
@@ -397,6 +492,14 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
           placeholder="Cardio, aches, anything worth remembering"
         />
       </div>
+
+      {pickerForCard && (
+        <ExercisePickerModal
+          recentIds={recentExerciseIds}
+          onSelect={handlePickExercise}
+          onClose={() => setPickerForCard(null)}
+        />
+      )}
     </div>
   )
 }

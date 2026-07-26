@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import client from '../api/client'
+import MuscleBadge from './MuscleBadge'
 
 const CATEGORIES = [
   { key: 'all', label: 'All' },
@@ -82,7 +83,8 @@ export default function ExercisePickerModal({ recentIds = [], onSelect, onClose 
               <div className="modal-list-heading">Recently used</div>
               {recent.map((ex) => (
                 <button key={ex.id} type="button" className="modal-list-item" onClick={() => onSelect(ex)}>
-                  {ex.name}
+                  <MuscleBadge muscleGroup={ex.muscle_group} />
+                  <span>{ex.name}</span>
                 </button>
               ))}
               <div className="modal-list-heading">All exercises</div>
@@ -92,11 +94,18 @@ export default function ExercisePickerModal({ recentIds = [], onSelect, onClose 
           {!loading &&
             filtered.map((ex) => (
               <button key={ex.id} type="button" className="modal-list-item" onClick={() => onSelect(ex)}>
-                {ex.name}
+                <MuscleBadge muscleGroup={ex.muscle_group} />
+                <span>{ex.name}</span>
               </button>
             ))}
 
           {!loading && filtered.length === 0 && <p className="empty-state">No exercises found.</p>}
+
+          {!loading && !query.trim() && category === 'all' && (
+            <p className="meta" style={{ textAlign: 'center', marginTop: 14 }}>
+              {all.length} exercises available — search above, or pick a muscle group to browse.
+            </p>
+          )}
         </div>
       </div>
     </div>
