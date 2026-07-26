@@ -27,21 +27,30 @@ WORKOUT_DETAIL_SELECT = (
 
 @router.get("/exercise-history/{exercise_id}")
 def get_exercise_history(exercise_id: str, client=Depends(get_user_client)):
-    """Most recent sets logged for this exercise — powers the 'last time you
-    did X kg × Y reps' suggestion when starting a new set for it."""
+    """Last session's sets (for pre-fill) + all-time best (target to beat)."""
     res = (
         client.table("workout_exercises")
-        .select("id, sets:exercise_sets(*)")
+        .select("id, created_at, sets:exercise_sets(*)")
         .eq("exercise_id", exercise_id)
         .order("created_at", desc=True)
-        .limit(1)
         .execute()
     )
     if not res.data:
-        return {"sets": []}
-    sets = res.data[0].get("sets") or []
-    sets = sorted(sets, key=lambda s: s.get("set_number", 0))
-    return {"sets": sets}
+        return {"sets": [], "best": None}
+
+    last_sets = sorted(res.data[0].get("sets") or [], key=lambda s: s.get("set_number", 0))
+
+    best_weight = 0
+    best_reps = 0
+    for we in res.data:
+        for s in we.get("sets") or []:
+            w = s.get("weight_kg") or 0
+            if w > best_weight:
+                best_weight = w
+                best_reps = s.get("reps") or 0
+
+    best = {"weight_kg": best_weight, "reps": best_reps} if best_weight > 0 else None
+    return {"sets": last_sets, "best": best}
 
 
 @router.post("", response_model=WorkoutOut, status_code=201)
