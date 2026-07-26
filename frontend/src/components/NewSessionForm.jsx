@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import client from '../api/client'
 import VoiceRecorderButton from './VoiceRecorderButton'
 import ExercisePickerModal from './ExercisePickerModal'
@@ -73,6 +73,15 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, existi
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (existingWorkout) {
+      for (const c of cards) {
+        if (c.exercise) loadExerciseHistory(c.cardId, c.exercise)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function addCard() {
     const card = makeEmptyCard()

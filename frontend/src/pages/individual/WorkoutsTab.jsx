@@ -101,7 +101,7 @@ export default function WorkoutsTab({ allExercises, recentExerciseIds, onDataCha
         + New Session
       </button>
 
-      <div className="card">
+      <div className="exercise-grid">
         {loading && <Spinner label="Loading your workouts…" />}
         {error && <div className="error-text">{error}</div>}
         {!loading && workouts.length === 0 && (
@@ -112,7 +112,7 @@ export default function WorkoutsTab({ allExercises, recentExerciseIds, onDataCha
           const s = summarize(w)
           const badge = dateBadge(w.workout_date)
           return (
-            <button key={w.id} type="button" className="workout-summary-item" onClick={() => openWorkout(w)}>
+            <button key={w.id} type="button" className="card workout-summary-item" onClick={() => openWorkout(w)}>
               <span className="workout-date-badge">
                 <strong>{badge.day}</strong>
                 <span>{badge.month}</span>
