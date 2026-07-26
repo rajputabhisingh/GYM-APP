@@ -44,6 +44,7 @@ class WorkoutCreate(BaseModel):
 
 
 class WorkoutUpdate(BaseModel):
+    workout_date: Optional[date] = None
     title: Optional[str] = None
     notes: Optional[str] = None
 
