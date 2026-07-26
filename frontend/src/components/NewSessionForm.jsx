@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import client from '../api/client'
 import VoiceRecorderButton from './VoiceRecorderButton'
-import ExercisePickerModal from './ExercisePickerModal'
+import ExerciseAutocomplete from './ExerciseAutocomplete'
 import { parseVoiceTranscript, findClosestExercise, suggestExercises } from '../utils/parseVoiceTranscript'
 import { DIFFICULTIES, kgToLbs, lbsToKg } from '../utils/difficulty'
 import { getErrorMessage } from '../utils/errorMessage'
@@ -16,8 +16,9 @@ function emptyCard(id) {
   return {
     cardId: id,
     exercise: null,
-    sets: [emptySet(1)],
+    sets: [emptySet(1), emptySet(2), emptySet(3)],
     lastTime: null,
+    best: null,
     lastHeard: null,
     suggestions: [],
     unit: 'kg',
@@ -28,7 +29,6 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
   const [date, setDate] = useState(todayISO())
   const [cards, setCards] = useState([emptyCard(1)])
   const [notes, setNotes] = useState('')
-  const [pickerForCard, setPickerForCard] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -37,9 +37,7 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
   }
 
   function addCard() {
-    const id = nextCardId()
-    setCards((prev) => [...prev, emptyCard(id)])
-    setPickerForCard(id)
+    setCards((prev) => [...prev, emptyCard(nextCardId())])
   }
 
   function removeCard(cardId) {
@@ -53,7 +51,6 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
   function toggleUnit(cardId) {
     updateCard(cardId, (c) => {
       const nextUnit = c.unit === 'kg' ? 'lbs' : 'kg'
-      // Convert already-entered numbers so they still represent the same real weight.
       const sets = c.sets.map((s) => {
         if (s.weight_kg === '' || s.weight_kg == null) return s
         const num = Number(s.weight_kg)
@@ -64,18 +61,21 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
     })
   }
 
-  async function applyExerciseToCard(cardId, exercise) {
-    updateCard(cardId, (c) => ({ ...c, exercise, suggestions: [] }))
-
-    // Suggest starting weight/reps from the last time this exercise was logged.
+  // Fetches last-session sets + all-time best for an exercise and folds them
+  // into the card (pre-filling empty sets, padding up to 3 rows to fill in).
+  async function loadExerciseHistory(cardId, exercise) {
     try {
       const res = await client.get(`/workouts/exercise-history/${exercise.id}`)
       const lastSets = res.data.sets || []
-      if (lastSets.length === 0) return
+      const best = res.data.best || null
 
       updateCard(cardId, (c) => {
+        let next = { ...c, best }
+        if (lastSets.length === 0) return next
+
         const hasRealData = c.sets.some((s) => s.weight_kg !== '' || s.reps !== '')
-        if (hasRealData) return { ...c, lastTime: lastSets }
+        if (hasRealData) return { ...next, lastTime: lastSets }
+
         const prefilled = lastSets.map((s, i) => ({
           set_number: i + 1,
           weight_kg: s.weight_kg == null ? '' : c.unit === 'lbs' ? kgToLbs(s.weight_kg) : s.weight_kg,
@@ -84,17 +84,21 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
           notes: '',
           done: false,
         }))
-        return { ...c, sets: prefilled, lastTime: lastSets }
+        while (prefilled.length < 3) prefilled.push(emptySet(prefilled.length + 1))
+        return { ...next, sets: prefilled, lastTime: lastSets }
       })
     } catch {
-      // suggestion is a nice-to-have — ignore failures silently
+      // history/suggestion is a nice-to-have — ignore failures silently
     }
   }
 
-  async function handlePickExercise(exercise) {
-    const cardId = pickerForCard
-    setPickerForCard(null)
-    await applyExerciseToCard(cardId, exercise)
+  async function applyExerciseToCard(cardId, exercise) {
+    if (!exercise) {
+      updateCard(cardId, (c) => ({ ...c, exercise: null }))
+      return
+    }
+    updateCard(cardId, (c) => ({ ...c, exercise, suggestions: [] }))
+    await loadExerciseHistory(cardId, exercise)
   }
 
   function addSetRow(cardId) {
@@ -125,13 +129,12 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
   function handleVoiceChunk(cardId, transcripts) {
     const primary = transcripts[0]
     const { exerciseGuess, sets: parsedSets } = parseVoiceTranscript(primary)
+    let newlyMatched = null
 
     updateCard(cardId, (c) => {
       let next = { ...c, lastHeard: primary, suggestions: [] }
 
       if (!next.exercise && exerciseGuess) {
-        // Background noise can garble the #1 guess — try every alternative
-        // Chrome offered until one of them confidently matches a real exercise.
         let match = null
         for (const alt of transcripts) {
           const altGuess = parseVoiceTranscript(alt).exerciseGuess
@@ -140,6 +143,7 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
         }
         if (match) {
           next = { ...next, exercise: match }
+          newlyMatched = match
         } else {
           next = { ...next, suggestions: suggestExercises(exerciseGuess, allExercises, 4) }
         }
@@ -148,7 +152,6 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
       if (parsedSets.length > 0) {
         const hasRealData = next.sets.some((s) => s.weight_kg !== '' || s.reps !== '')
         const baseCount = hasRealData ? next.sets.length : 0
-        // Voice always reports kg/lbs as spoken; convert into whatever unit this card is set to.
         const newSets = parsedSets.map((s, i) => ({
           set_number: baseCount + i + 1,
           weight_kg: s.weight_kg == null ? '' : next.unit === 'lbs' ? kgToLbs(s.weight_kg) : s.weight_kg,
@@ -162,6 +165,8 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
 
       return next
     })
+
+    if (newlyMatched) loadExerciseHistory(cardId, newlyMatched)
   }
 
   async function handleFinish() {
@@ -194,7 +199,6 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
           sets: c.sets
             .filter((s) => s.weight_kg !== '' || s.reps !== '')
             .map((s) => {
-              // Backend always stores kg — convert lbs entries back before sending.
               const rawWeight = s.weight_kg === '' ? null : Number(s.weight_kg)
               const weightKg = rawWeight == null ? null : c.unit === 'lbs' ? lbsToKg(rawWeight) : rawWeight
               return {
@@ -236,16 +240,14 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
       {error && <div className="error-text">{error}</div>}
 
       <div className="exercise-grid">
-        {cards.map((card, idx) => (
+        {cards.map((card) => (
           <div key={card.cardId} className="card exercise-card">
             <div className="exercise-card-header">
-              <button
-                type="button"
-                className="exercise-name-btn"
-                onClick={() => setPickerForCard(card.cardId)}
-              >
-                {card.exercise ? card.exercise.name : `Exercise ${idx + 1}`}
-              </button>
+              <ExerciseAutocomplete
+                value={card.exercise}
+                recentIds={recentExerciseIds}
+                onSelect={(ex) => applyExerciseToCard(card.cardId, ex)}
+              />
               <VoiceRecorderButton onChunk={(t) => handleVoiceChunk(card.cardId, t)} />
               <button
                 type="button"
@@ -261,14 +263,6 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
               <button
                 type="button"
                 className="btn btn-ghost"
-                onClick={() => setPickerForCard(card.cardId)}
-                aria-label="Search exercise"
-              >
-                🔍
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost"
                 onClick={() => removeCard(card.cardId)}
                 aria-label="Remove exercise"
               >
@@ -276,10 +270,15 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
               </button>
             </div>
 
-            {card.lastTime && (
+            {(card.lastTime || card.best) && (
               <p className="meta" style={{ marginBottom: 10 }}>
-                Last time: {card.lastTime.map((s) => `${s.weight_kg ?? '—'}kg×${s.reps ?? '—'}`).join(', ')}
-                {' — pre-filled below, adjust as needed'}
+                {card.lastTime && (
+                  <>Last time: {card.lastTime.map((s) => `${s.weight_kg ?? '—'}kg×${s.reps ?? '—'}`).join(', ')}</>
+                )}
+                {card.best && (
+                  <> · Best: {card.best.weight_kg}kg×{card.best.reps}</>
+                )}
+                {card.lastTime && ' — pre-filled below, adjust as needed'}
               </p>
             )}
 
@@ -304,7 +303,7 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
                   </>
                 ) : (
                   <p className="meta" style={{ marginTop: 6 }}>
-                    No close match — tap 🔍 to search manually.
+                    No close match — search for it in the box above.
                   </p>
                 )}
               </div>
@@ -398,14 +397,6 @@ export default function NewSessionForm({ allExercises, recentExerciseIds, onFini
           placeholder="Cardio, aches, anything worth remembering"
         />
       </div>
-
-      {pickerForCard && (
-        <ExercisePickerModal
-          recentIds={recentExerciseIds}
-          onSelect={handlePickExercise}
-          onClose={() => setPickerForCard(null)}
-        />
-      )}
     </div>
   )
 }
