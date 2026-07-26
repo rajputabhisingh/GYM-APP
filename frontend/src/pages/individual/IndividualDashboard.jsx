@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import Navbar from '../../components/Navbar'
+import SidePanel from '../../components/SidePanel'
 import client from '../../api/client'
 import WorkoutsTab from './WorkoutsTab'
 import ProgressTab from './ProgressTab'
@@ -15,6 +16,7 @@ export default function IndividualDashboard() {
   const [tab, setTab] = useState('workouts')
   const [allExercises, setAllExercises] = useState([])
   const [recentExerciseIds, setRecentExerciseIds] = useState([])
+  const [snapshotVersion, setSnapshotVersion] = useState(0)
 
   const loadRecents = useCallback(() => {
     client.get('/workouts', { params: { limit: 10 } }).then((res) => {
@@ -26,7 +28,10 @@ export default function IndividualDashboard() {
       }
       setRecentExerciseIds(ids)
     })
+    setSnapshotVersion((v) => v + 1)
   }, [])
+
+  const bumpSnapshot = useCallback(() => setSnapshotVersion((v) => v + 1), [])
 
   useEffect(() => {
     client.get('/exercises').then((res) => setAllExercises(res.data))
@@ -61,9 +66,11 @@ export default function IndividualDashboard() {
                 />
               )}
               {tab === 'progress' && <ProgressTab />}
-              {tab === 'settings' && <SettingsTab />}
+              {tab === 'settings' && <SettingsTab onGoalsSaved={bumpSnapshot} />}
             </div>
           </div>
+
+          <SidePanel onEditGoals={() => setTab('settings')} refreshKey={snapshotVersion} />
         </div>
       </div>
     </div>
