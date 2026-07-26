@@ -10,15 +10,21 @@ function startOfWeek(d) {
 }
 
 function fmtVolume(kg) {
-  if (kg >= 1000) return `${(kg / 1000).toFixed(1)}t`
-  return `${Math.round(kg)}kg`
+  if (kg >= 1000) return `${(kg / 1000).toFixed(1)} t`
+  return `${Math.round(kg)} kg`
 }
 
-function fmtWeekChange(current, previous) {
-  if (!previous) return current > 0 ? 'new this week' : '— vs last wk'
+function weekChange(current, previous) {
+  if (!previous) {
+    return current > 0
+      ? { text: 'new this week', className: 'success-text' }
+      : { text: '— vs last wk', className: 'meta' }
+  }
   const pct = Math.round(((current - previous) / previous) * 100)
-  if (pct === 0) return '0% vs last wk'
-  return `${pct > 0 ? '↑' : '↓'}${Math.abs(pct)}% vs last wk`
+  if (pct === 0) return { text: '0% vs last wk', className: 'meta' }
+  return pct > 0
+    ? { text: `↑${pct}% vs last wk`, className: 'success-text' }
+    : { text: `↓${Math.abs(pct)}% vs last wk`, className: 'error-text' }
 }
 
 function e1rm(weightKg, reps) {
@@ -93,15 +99,16 @@ export default function SidePanel({ onEditGoals, refreshKey }) {
 
   const lastSession = [...workouts].sort((a, b) => (a.workout_date < b.workout_date ? 1 : -1))[0]
   const muscleFocus = Object.entries(muscleSessionCount).sort((a, b) => b[1] - a[1])
+  const change = weekChange(thisWeekVolume, lastWeekVolume)
 
   return (
     <div className="side-panel">
       <div className="card">
         <h4 className="panel-heading">Your goals</h4>
-        <div className="category-chips" style={{ marginTop: 10 }}>
+        <div className="goal-pill-list">
           {goals.length === 0 && <span className="meta">No goals set yet</span>}
           {goals.map((g) => (
-            <span key={g} className="chip active">
+            <span key={g} className="goal-pill">
               {g}
             </span>
           ))}
@@ -125,8 +132,8 @@ export default function SidePanel({ onEditGoals, refreshKey }) {
             <div className="meta">volume</div>
           </div>
         </div>
-        <div className="meta" style={{ marginTop: 10 }}>
-          {fmtWeekChange(thisWeekVolume, lastWeekVolume)}
+        <div className={change.className} style={{ marginTop: 10 }}>
+          {change.text}
         </div>
       </div>
 
@@ -144,7 +151,7 @@ export default function SidePanel({ onEditGoals, refreshKey }) {
         </div>
         {bestE1rm > 0 && (
           <div className="meta" style={{ marginTop: 10 }}>
-            Best estimated 1RM: {(Math.round(bestE1rm * 10) / 10).toFixed(1)}kg
+            Best estimated 1RM: {(Math.round(bestE1rm * 10) / 10).toFixed(1)} kg
           </div>
         )}
       </div>

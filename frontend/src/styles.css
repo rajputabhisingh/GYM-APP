@@ -700,6 +700,103 @@ a.card:hover,
   }
 }
 
+/* ---------- Right-side snapshot panel (goals / this week / all time / muscle focus) ---------- */
+.meta {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 300px;
+  flex-shrink: 0;
+}
+
+.side-panel .card {
+  padding: 18px 20px;
+}
+
+.panel-heading {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.goal-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.goal-pill {
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.snapshot-stats {
+  display: flex;
+  gap: 28px;
+  margin-top: 10px;
+}
+
+.snapshot-stats .stat-number {
+  font-size: 26px;
+}
+
+.muscle-focus-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.muscle-focus-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.muscle-focus-name {
+  color: var(--text);
+  text-transform: capitalize;
+}
+
+.muscle-focus-count {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.btn-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 880px) {
+  .side-panel {
+    display: none;
+  }
+}
+
 /* ---------- Category / difficulty / period chips ---------- */
 .chip {
   border: 1px solid var(--border);
